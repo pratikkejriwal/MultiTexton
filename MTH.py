@@ -1,7 +1,9 @@
+
 # coding: utf-8
 
 # # Image Retrieval Based on Multi-Texton Histogram
 
+# In[5]:
 
 
 # importing libraries
@@ -10,27 +12,42 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+# In[7]:
+
+
 from pymongo import MongoClient
 client = MongoClient('mongodb://localhost:27017')
-
-Database = np.zeros(1000*82).reshape(1000,82)
+#path = "dataset_path"
+Database = []
 for entry in range(1000):
-    imagename = str(entry)+'.jpg'
+    imagename = path + str(entry)+'.jpg'
+    print(imagename)
     img = cv2.imread(imagename)
     width, height, channels = img.shape
-    
+
+
+
     # # Texture Orientation Detection
+
+    # In[8]:
+
+
     CSA = 64
     CSB = 18
     arr = np.zeros(3*width*height).reshape(width,height,3)
     ori = np.zeros(width * height).reshape(width, height)
+
+    # In[9]:
+
+
     gxx = gyy = gxy = 0.0
     rh = gh = bh = 0.0
     rv = gv = bv = 0.0
     theta = np.zeros(width*height).reshape(width,height)
-    
-    for i in range(1, width-1):
-        for j in range(1, height-1):
+
+    for i in range(1, width-2):
+        for j in range(1, height-2):
             rh=arr[i-1,j+1,0] + 2*arr[i,j + 1,0] + arr[i+1, j+1,0] - (arr[i-1, j - 1, 0] + 2 * arr[i,j-1, 0] + arr[i + 1, j - 1, 0])
             gh=arr[i-1,j+1,1] + 2*arr[i,j + 1,1] + arr[i+ 1,j+1,1] - (arr[i-1, j - 1, 1] + 2 * arr[i,j-1, 1] + arr[i + 1, j - 1, 1])
             bh=arr[i-1,j+1,2] + 2*arr[i,j + 1,2] + arr[i+ 1,j+1,2] - (arr[i-1, j - 1, 2] + 2 * arr[i,j-1, 2] + arr[i + 1, j - 1, 2])
@@ -43,17 +60,22 @@ for entry in range(1000):
             gxy = rh * rv + gh * gv + bh * bv
             
             theta[i,j] = (math.acos(gxy / (gxx * gyy + 0.0001))*180 / math.pi)
-    
+
     ImageX = np.zeros(width * height).reshape(width, height)
-    # Color Quantization in RGB Color Space
+
+
+    # # Color Quantization in RGB Color Space
+
+    # In[10]:
+
+
     R = G = B = 0
     VI = SI = HI = 0
-    BC,GC,RC = cv2.split(img)    
     for i in range(0, width):
         for j in range(0, height):
-            R = RC[i][j]
-            G = GC[i][j]
-            B = BC[i][j]
+            R = img[i,j][0]
+            G = img[i,j][1]
+            B = img[i,j][2]
             
             if (R >=0 and R <= 64):
                 VI = 0;
@@ -80,19 +102,27 @@ for entry in range(1000):
             if (B >= 193 and B <= 255):
                 HI = 3;
             
-            ImageX[i, j] = 16 * VI + 4 * SI + HI;
-            
+            ImageX[i, j] = 16 * VI + 4 * SI + HI
+
+
+    # In[11]:
+
+
     for i in range(0, width):
         for j in range(0, height):
-            ori[i,j] = round(theta[i,j]*CSB/180);
+            ori[i,j] = round(theta[i,j]*CSB/180)
             
             if(ori[i,j]>=CSB-1):
-                ori[i,j]=CSB-1;
-    
+                ori[i,j]=CSB-1
+
+
     # # Texton Detection
-    
+
+    # In[12]:
+
+
     Texton = np.zeros(width * height).reshape(width, height)
-    
+
     for i in range(0,(int)(width/2)):
         for j in range(0,(int)(height/2)):
             if(ImageX[2*i,2*j] == ImageX[2*i+1,2*j+1]):
@@ -106,81 +136,81 @@ for entry in range(1000):
                 Texton[2 * i + 1, 2 * j] = ImageX[2 * i + 1, 2 * j];
                 Texton[2 * i, 2 * j + 1] = ImageX[2 * i, 2 * j + 1];
                 Texton[2 * i + 1, 2 * j + 1] = ImageX[2 * i + 1, 2 * j + 1];
-                
+            
             if (ImageX[2*i,2*j] == ImageX[2*i+1,2*j]): 
                 Texton[2 * i, 2 * j] = ImageX[2 * i, 2 * j];
                 Texton[2 * i + 1, 2 * j] = ImageX[2 * i + 1, 2 * j];
                 Texton[2 * i, 2 * j + 1] = ImageX[2 * i, 2 * j + 1];
                 Texton[2 * i + 1, 2 * j + 1] = ImageX[2 * i + 1, 2 * j + 1];
-            
+                
             if (ImageX[2*i,2*j] == ImageX[2*i,2*j+1]):
                 Texton[2 * i, 2 * j] = ImageX[2 * i, 2 * j];
                 Texton[2 * i + 1, 2 * j] = ImageX[2 * i + 1, 2 * j];
                 Texton[2 * i, 2 * j + 1] = ImageX[2 * i, 2 * j + 1];
                 Texton[2 * i + 1, 2 * j + 1] = ImageX[2 * i + 1, 2 * j + 1];                   
-                
+
+
     # # Multi-Texton Histogram
-    
+
+    # In[13]:
+
+
     MatrixH = np.zeros(CSA + CSB).reshape(CSA + CSB)
     MatrixV = np.zeros(CSA + CSB).reshape(CSA + CSB)
     MatrixRD = np.zeros(CSA + CSB).reshape(CSA + CSB)
     MatrixLD = np.zeros(CSA + CSB).reshape(CSA + CSB)
-    
+
     D = 1 #distance parameter
-    
+
     for i in range(0, width):
         for j in range(0, height-D):
             if(ori[i, j+D] == ori[i, j]):
                 MatrixH[(int)(Texton[i,j])] += 1;
             if(Texton[i, j + D] == Texton[i, j]):
                 MatrixH[(int)(CSA + ori[i, j])] += 1;
-    
+
     for i in range(0, width-D):
         for j in range(0, height):
             if(ori[i + D, j] == ori[i, j]):
                 MatrixV[(int)(Texton[i,j])] += 1;
             if(Texton[i + D, j] == Texton[i, j]):
                 MatrixV[(int)(CSA + ori[i, j])] += 1;
-    
+
     for i in range(0, width-D):
         for j in range(0, height-D):
             if(ori[i + D, j + D] == ori[i, j]):
                 MatrixRD[(int)(Texton[i,j])] += 1;
             if(Texton[i + D, j + D] == Texton[i, j]):
                 MatrixRD[(int)(CSA + ori[i, j])] += 1;
-    
+                
     for i in range(D, width):
         for j in range(0, height-D):
             if(ori[i - D, j + D] == ori[i, j]):
                 MatrixLD[(int)(Texton[i,j])] += 1;
             if(Texton[i - D, j + D] == Texton[i, j]):
                 MatrixLD[(int)(CSA + ori[i, j])] += 1;
-    
-    # # Feature Vectors
-    MTH = np.zeros(CSA + CSB).reshape(CSA + CSB)
-    
-    for i in range(0, CSA + CSB):
-        MTH[i] = (MatrixH[i] + MatrixV[i] + MatrixRD[i] + MatrixLD[i])/4.0;
-    MTH
 
-    for i in range(CSA+CSB):
-        Database[entry] = MTH[i]
-    print("Entered for"+imagename)
+    # # Feature Vectors
+
+    # In[14]:
+
+
+    MTH = np.zeros(CSA + CSB).reshape(CSA + CSB)
+
+    for i in range(0, CSA + CSB):
+        MTH[i] = ( MatrixH[i] + MatrixV[i] + MatrixRD[i] + MatrixLD[i])/4.0
+
+    # In[16]:
+
+    #print(MTH)
     
-collection = client.test_database.coral
+    Database.append(MTH)
+    #print(Database[entry])
+    entry+=1
+    print("Entered for "+imagename)
+
+Database = np.array(Database)
+collection = client.MTH.coralTest
 collection.insert({"distances":Database.tolist(),"name":'Coral Dataset'})
 print (Database[0])
 
-
-
-# In[50]:
-
-
-#plt.axis([0, 82, 0, 6000])
-#plt.bar(np.arange(82),MTH)
-#plt.xlabel('Bin size')
-#plt.ylabel('Frequency')
-#plt.title('Histogram of MTH')
-#plt.grid(True)
-
-#plt.show()
