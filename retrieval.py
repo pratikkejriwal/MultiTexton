@@ -28,7 +28,7 @@ collection = client.MTH.coralTest
 
 
 db = []
-path = "D:/SEM 6/Content/Lab_Activity/Corel 1K/image.orig/"
+path = "dataset_path"
 num = np.int64(input('Enter the input Image: '))
 for x in collection.find():
     db = np.array(x['distances'])
